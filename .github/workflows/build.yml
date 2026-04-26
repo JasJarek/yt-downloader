@@ -15,10 +15,8 @@ jobs:
         include:
           - os: ubuntu-22.04
             platform: linux
-            artifact_name: yt-downloader_linux
           - os: windows-latest
             platform: windows
-            artifact_name: yt-downloader_windows
 
     runs-on: ${{ matrix.os }}
 
@@ -42,7 +40,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: ./yt-downloader/src-tauri -> target
+          workspaces: src-tauri -> target
 
       - name: Install Linux system dependencies
         if: matrix.platform == 'linux'
@@ -56,63 +54,58 @@ jobs:
             pkg-config
 
       - name: Install frontend deps
-        working-directory: yt-downloader
         run: pnpm install
 
       - name: Download yt-dlp sidecar (Linux)
         if: matrix.platform == 'linux'
-        working-directory: yt-downloader/src-tauri
         run: |
-          mkdir -p binaries
-          curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o binaries/yt-dlp
-          chmod +x binaries/yt-dlp
+          mkdir -p src-tauri/binaries
+          curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o src-tauri/binaries/yt-dlp
+          chmod +x src-tauri/binaries/yt-dlp
 
       - name: Download yt-dlp sidecar (Windows)
         if: matrix.platform == 'windows'
-        working-directory: yt-downloader/src-tauri
         shell: bash
         run: |
-          mkdir -p binaries
-          curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -o binaries/yt-dlp.exe
+          mkdir -p src-tauri/binaries
+          curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -o src-tauri/binaries/yt-dlp.exe
 
       - name: Download FFmpeg sidecar (Linux)
         if: matrix.platform == 'linux'
-        working-directory: yt-downloader/src-tauri
         run: |
           curl -L https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz -o ffmpeg.tar.xz
-          tar -xf ffmpeg.tar.xz --strip-components=2 --wildcards "*/bin/ffmpeg" -C binaries/
-          chmod +x binaries/ffmpeg
-          rm ffmpeg.tar.xz
+          tar -xf ffmpeg.tar.xz
+          cp ffmpeg-master-latest-linux64-gpl/bin/ffmpeg src-tauri/binaries/ffmpeg
+          chmod +x src-tauri/binaries/ffmpeg
+          rm -rf ffmpeg.tar.xz ffmpeg-master-latest-linux64-gpl
 
       - name: Download FFmpeg sidecar (Windows)
         if: matrix.platform == 'windows'
-        working-directory: yt-downloader/src-tauri
         shell: bash
         run: |
           curl -L https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip -o ffmpeg.zip
-          unzip -j ffmpeg.zip "*/bin/ffmpeg.exe" -d binaries/
-          rm ffmpeg.zip
+          unzip ffmpeg.zip
+          cp ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe src-tauri/binaries/ffmpeg.exe
+          rm -rf ffmpeg.zip ffmpeg-master-latest-win64-gpl
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          projectPath: yt-downloader
           tagName: ${{ github.ref_name }}
           releaseName: 'YT Downloader ${{ github.ref_name }}'
           releaseBody: |
             ## YT Downloader ${{ github.ref_name }}
 
-            ### Downloads
-            - **Windows**: `.msi` or `.exe` installer
-            - **Linux**: `.deb` package or `.AppImage`
+            ### Pobierz / Download
+            - **Windows**: plik `.msi` lub `.exe`
+            - **Linux**: plik `.deb` lub `.AppImage`
 
-            ### Requirements
+            ### Wymagania / Requirements
             - Windows 11 (64-bit)
             - Ubuntu 22.04+ (64-bit)
-            - Internet connection for downloading
 
-            yt-dlp and FFmpeg are bundled — no additional installation required.
+            yt-dlp i FFmpeg są dołączone — nie wymagają osobnej instalacji.
           releaseDraft: true
           prerelease: false
