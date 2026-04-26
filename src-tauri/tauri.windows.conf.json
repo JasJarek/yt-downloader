@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "resources": [
+      "binaries/yt-dlp.exe",
+      "binaries/ffmpeg.exe"
+    ]
+  }
+}

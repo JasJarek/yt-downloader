@@ -35,10 +35,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "binaries/yt-dlp",
-      "binaries/ffmpeg"
-    ]
+    "resources": []
   },
   "plugins": {}
 }
