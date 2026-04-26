@@ -1,0 +1,118 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+            artifact_name: yt-downloader_linux
+          - os: windows-latest
+            platform: windows
+            artifact_name: yt-downloader_windows
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./yt-downloader/src-tauri -> target
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            pkg-config
+
+      - name: Install frontend deps
+        working-directory: yt-downloader
+        run: pnpm install
+
+      - name: Download yt-dlp sidecar (Linux)
+        if: matrix.platform == 'linux'
+        working-directory: yt-downloader/src-tauri
+        run: |
+          mkdir -p binaries
+          curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o binaries/yt-dlp
+          chmod +x binaries/yt-dlp
+
+      - name: Download yt-dlp sidecar (Windows)
+        if: matrix.platform == 'windows'
+        working-directory: yt-downloader/src-tauri
+        shell: bash
+        run: |
+          mkdir -p binaries
+          curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -o binaries/yt-dlp.exe
+
+      - name: Download FFmpeg sidecar (Linux)
+        if: matrix.platform == 'linux'
+        working-directory: yt-downloader/src-tauri
+        run: |
+          curl -L https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz -o ffmpeg.tar.xz
+          tar -xf ffmpeg.tar.xz --strip-components=2 --wildcards "*/bin/ffmpeg" -C binaries/
+          chmod +x binaries/ffmpeg
+          rm ffmpeg.tar.xz
+
+      - name: Download FFmpeg sidecar (Windows)
+        if: matrix.platform == 'windows'
+        working-directory: yt-downloader/src-tauri
+        shell: bash
+        run: |
+          curl -L https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip -o ffmpeg.zip
+          unzip -j ffmpeg.zip "*/bin/ffmpeg.exe" -d binaries/
+          rm ffmpeg.zip
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: yt-downloader
+          tagName: ${{ github.ref_name }}
+          releaseName: 'YT Downloader ${{ github.ref_name }}'
+          releaseBody: |
+            ## YT Downloader ${{ github.ref_name }}
+
+            ### Downloads
+            - **Windows**: `.msi` or `.exe` installer
+            - **Linux**: `.deb` package or `.AppImage`
+
+            ### Requirements
+            - Windows 11 (64-bit)
+            - Ubuntu 22.04+ (64-bit)
+            - Internet connection for downloading
+
+            yt-dlp and FFmpeg are bundled — no additional installation required.
+          releaseDraft: true
+          prerelease: false
