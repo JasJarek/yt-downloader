@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-docker
+src-tauri/target
+src-tauri/binaries
+src-tauri/gen
+.git
+.github
+*.md

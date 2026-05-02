@@ -1,0 +1,35 @@
+services:
+
+  # Builds Linux installers (.deb and .AppImage)
+  # Output lands in ./dist-docker/
+  build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: yt-downloader-builder
+    volumes:
+      # Mount output directory to extract installers after build
+      - ./dist-docker:/output
+    command: >
+      sh -c "
+        cp /app/src-tauri/target/release/bundle/deb/*.deb /output/ 2>/dev/null || true &&
+        cp /app/src-tauri/target/release/bundle/appimage/*.AppImage /output/ 2>/dev/null || true &&
+        echo '✓ Installers copied to ./dist-docker/'
+      "
+
+  # Development server (frontend only — useful for UI work without Tauri)
+  dev-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    image: yt-downloader-builder
+    ports:
+      - "1420:1420"
+    volumes:
+      - ./src:/app/src
+      - ./index.html:/app/index.html
+    command: pnpm dev --host 0.0.0.0
+    environment:
+      - VITE_DEV_DOCKER=true
