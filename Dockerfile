@@ -19,8 +19,6 @@ RUN curl -L https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpe
 FROM ubuntu:22.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PNPM_HOME=/root/.local/share/pnpm
-ENV PATH=$PNPM_HOME:$PATH
 ENV CARGO_HOME=/usr/local/cargo
 ENV RUSTUP_HOME=/usr/local/rustup
 ENV PATH=$CARGO_HOME/bin:$PATH
@@ -42,9 +40,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# pnpm
-RUN curl -fsSL https://get.pnpm.io/install.sh | sh - \
-    && pnpm --version
+# pnpm (via npm — reliable in Docker without shell detection)
+RUN npm install -g pnpm && pnpm --version
 
 # Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
