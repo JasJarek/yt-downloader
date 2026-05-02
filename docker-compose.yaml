@@ -1,7 +1,30 @@
 services:
 
-  # Builds Linux installers (.deb and .AppImage)
-  # Output lands in ./dist-docker/
+  # Frontend dev server — lekki obraz Node.js, start w ~10 sekund
+  # Otwórz http://localhost:1420 w przeglądarce
+  dev-frontend:
+    image: node:22-slim
+    working_dir: /app
+    ports:
+      - "1420:1420"
+    volumes:
+      - ./src:/app/src
+      - ./index.html:/app/index.html
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./tsconfig.node.json:/app/tsconfig.node.json
+      - ./package.json:/app/package.json
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml
+      - frontend_modules:/app/node_modules
+    environment:
+      - VITE_DEV_DOCKER=true
+    command: >
+      sh -c "npm install -g pnpm --silent &&
+             pnpm install --frozen-lockfile &&
+             pnpm dev --host 0.0.0.0 --port 1420"
+
+  # Buduje instalatory Linux (.deb i .AppImage) do ./dist-docker/
+  # Zajmuje ~15-20 min przy pierwszym uruchomieniu (kompilacja Rust)
   build:
     build:
       context: .
@@ -9,27 +32,19 @@ services:
       target: builder
     image: yt-downloader-builder
     volumes:
-      # Mount output directory to extract installers after build
       - ./dist-docker:/output
+      - rust_cache:/usr/local/cargo/registry
+      - rust_target:/app/src-tauri/target
     command: >
       sh -c "
-        cp /app/src-tauri/target/release/bundle/deb/*.deb /output/ 2>/dev/null || true &&
-        cp /app/src-tauri/target/release/bundle/appimage/*.AppImage /output/ 2>/dev/null || true &&
-        echo '✓ Installers copied to ./dist-docker/'
+        pnpm build &&
+        pnpm tauri build --config src-tauri/tauri.linux.conf.json &&
+        cp src-tauri/target/release/bundle/deb/*.deb /output/ 2>/dev/null || true &&
+        cp src-tauri/target/release/bundle/appimage/*.AppImage /output/ 2>/dev/null || true &&
+        echo 'Instalatory skopiowane do ./dist-docker/'
       "
 
-  # Development server (frontend only — useful for UI work without Tauri)
-  dev-frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: builder
-    image: yt-downloader-builder
-    ports:
-      - "1420:1420"
-    volumes:
-      - ./src:/app/src
-      - ./index.html:/app/index.html
-    command: pnpm dev --host 0.0.0.0
-    environment:
-      - VITE_DEV_DOCKER=true
+volumes:
+  frontend_modules:
+  rust_cache:
+  rust_target:
