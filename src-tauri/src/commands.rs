@@ -50,19 +50,36 @@ pub type ActiveDownloads = Arc<Mutex<HashMap<String, tokio::sync::watch::Sender<
 
 fn find_sidecar(app: &AppHandle, name: &str) -> String {
     use tauri::Manager;
-    // Try bundled sidecar in resources
-    let candidates = [
-        format!("binaries/{}", name),
-        format!("binaries/{}.exe", name),
-    ];
-    for candidate in &candidates {
-        if let Ok(p) = app.path().resource_dir().map(|d| d.join(candidate)) {
+
+    let names = [name.to_string(), format!("{}.exe", name)];
+
+    // 1. Bundled resources (production)
+    for n in &names {
+        if let Ok(p) = app.path().resource_dir().map(|d| d.join("binaries").join(n)) {
             if p.exists() {
                 return p.to_string_lossy().to_string();
             }
         }
     }
-    // Fallback: rely on PATH (dev mode)
+
+    // 2. Dev mode: binary lives in src-tauri/binaries/, exe in src-tauri/target/debug/
+    //    exe_dir/../../../binaries would overshoot — correct path is exe_dir/../../binaries
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            // target/debug/ -> target/ -> src-tauri/ -> binaries/
+            let dev_base = exe_dir.join("..").join("..").join("binaries");
+            for n in &names {
+                let p = dev_base.join(n);
+                if let Ok(canonical) = p.canonicalize() {
+                    if canonical.exists() {
+                        return canonical.to_string_lossy().to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Last resort: rely on system PATH
     name.to_string()
 }
 
