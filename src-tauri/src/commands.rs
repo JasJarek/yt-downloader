@@ -137,7 +137,11 @@ pub async fn fetch_metadata(app: AppHandle, url: String) -> Result<VideoMetadata
         .iter()
         .filter(|&&h| heights.contains(&h))
         .map(|&h| VideoFormat {
-            format_id: format!("bestvideo[height<={h}]+bestaudio"),
+            // Prefer H.264+AAC (native MP4, universally smooth playback).
+            // Fall back to any codec if H.264 isn't available at this height.
+            format_id: format!(
+                "bestvideo[height<={h}][vcodec^=avc]+bestaudio[acodec^=mp4a]/bestvideo[height<={h}]+bestaudio"
+            ),
             height: Some(h),
             fps: None,
             label: format!("{h}p"),
@@ -146,7 +150,7 @@ pub async fn fetch_metadata(app: AppHandle, url: String) -> Result<VideoMetadata
 
     if video_formats.is_empty() {
         video_formats.push(VideoFormat {
-            format_id: "bestvideo+bestaudio".to_string(),
+            format_id: "bestvideo[vcodec^=avc]+bestaudio[acodec^=mp4a]/bestvideo+bestaudio".to_string(),
             height: None,
             fps: None,
             label: "Best".to_string(),
