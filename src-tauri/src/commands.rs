@@ -98,8 +98,11 @@ pub async fn fetch_metadata(app: AppHandle, url: String) -> Result<VideoMetadata
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|| "yt-dlp".to_string());
 
-    let output = Command::new(&ytdlp)
-        .args(["--dump-json", "--no-playlist", &url])
+    let mut meta_cmd = Command::new(&ytdlp);
+    meta_cmd.args(["--dump-json", "--no-playlist", &url]);
+    #[cfg(target_os = "windows")]
+    meta_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    let output = meta_cmd
         .output()
         .await
         .map_err(|e| format!("Failed to run yt-dlp: {e}"))?;
@@ -190,7 +193,11 @@ pub async fn start_download(
                 return Err("FFmpeg nie został znaleziony. Sprawdź instalację aplikacji.".to_string());
             }
             Some(p) => {
-                let check = Command::new(p).arg("-version").output().await;
+                let mut ffmpeg_check = Command::new(p);
+                ffmpeg_check.arg("-version");
+                #[cfg(target_os = "windows")]
+                ffmpeg_check.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                let check = ffmpeg_check.output().await;
                 if check.is_err() {
                     return Err(format!(
                         "FFmpeg nie można uruchomić (ścieżka: {}). Sprawdź instalację.",
@@ -246,10 +253,14 @@ pub async fn start_download(
         request.url.clone(),
     ]);
 
-    let mut child = Command::new(&ytdlp)
+    let mut dl_cmd = Command::new(&ytdlp);
+    dl_cmd
         .args(&args)
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(target_os = "windows")]
+    dl_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    let mut child = dl_cmd
         .spawn()
         .map_err(|e| format!("Nie można uruchomić yt-dlp: {e}"))?;
 

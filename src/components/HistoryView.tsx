@@ -4,6 +4,7 @@ import { openPath } from '@tauri-apps/plugin-opener';
 import { DownloadRecord } from '../types';
 import { useSettingsStore } from '../store/settingsStore';
 import { t } from '../i18n';
+
 function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleString();
@@ -44,12 +45,12 @@ export function HistoryView() {
   };
 
   if (loading) {
-    return <div className="text-zinc-500 text-sm text-center py-8">...</div>;
+    return <div className="text-stone-400 text-sm text-center py-8">...</div>;
   }
 
   if (records.length === 0) {
     return (
-      <div className="text-zinc-500 text-sm text-center py-8">
+      <div className="text-stone-400 text-sm text-center py-8">
         {t(lang, 'history.empty')}
       </div>
     );
@@ -58,33 +59,35 @@ export function HistoryView() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-between items-center">
-        <h2 className="text-white font-semibold">{t(lang, 'history.title')}</h2>
+        <h2 className="text-stone-800 font-semibold text-sm">{t(lang, 'history.title')}</h2>
         <button
           onClick={handleClear}
-          className="text-zinc-500 hover:text-red-400 text-sm transition-colors"
+          className="text-stone-400 hover:text-red-500 text-xs transition-colors"
         >
           {t(lang, 'history.clear')}
         </button>
       </div>
       <div className="flex flex-col gap-2">
         {records.map((r) => (
-          <div key={r.id} className="bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 flex items-center gap-3">
+          <div key={r.id} className="bg-white border border-stone-100 rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
             <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-medium truncate">{r.title}</p>
-              <p className="text-zinc-500 text-xs mt-0.5">
+              <p className="text-stone-800 text-sm font-medium truncate">{r.title}</p>
+              <p className="text-stone-400 text-xs mt-0.5">
                 {r.format.toUpperCase()} · {r.quality} · {formatDate(r.created_at)}
               </p>
             </div>
-            <span className={`text-xs font-medium shrink-0 ${r.status === 'completed' ? 'text-green-400' : 'text-red-400'}`}>
+            <span className={`text-xs font-medium shrink-0 ${r.status === 'completed' ? 'text-emerald-600' : 'text-red-500'}`}>
               {t(lang, `download.stage.${r.status}`)}
             </span>
             {r.file_path && r.status === 'completed' && (
               <button
                 onClick={() => handleOpenFolder(r.file_path)}
-                className="text-zinc-500 hover:text-white text-xs transition-colors shrink-0"
+                className="text-stone-300 hover:text-stone-600 transition-colors shrink-0"
                 title={t(lang, 'history.openFolder')}
               >
-                📁
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                </svg>
               </button>
             )}
           </div>

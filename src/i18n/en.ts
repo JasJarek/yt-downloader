@@ -9,10 +9,10 @@ export const en = {
     accept: 'I understand and accept',
   },
   url: {
-    placeholder: 'Paste a YouTube video link...',
+    placeholder: 'Paste YouTube Video or Audio link here...',
     invalid: 'Invalid YouTube link',
-    fetch: 'Fetch info',
-    fetching: 'Fetching metadata...',
+    fetch: 'Analyze Link',
+    fetching: 'Analyzing...',
   },
   metadata: {
     duration: 'Duration',

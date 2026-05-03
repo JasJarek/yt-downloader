@@ -84,57 +84,79 @@ export function MetadataPreview({ url, metadata, onClear }: Props) {
           title: metadata.title,
         },
       });
-    } catch (e) {
+    } catch {
       setError(t(lang, 'errors.downloadFailed'));
     }
   };
 
+  const downloadLabel = format === 'mp4'
+    ? (lang === 'pl' ? 'Pobierz Wideo' : 'Download Video')
+    : (lang === 'pl' ? 'Pobierz Audio' : 'Download Audio');
+
   return (
-    <div className="bg-zinc-800 rounded-2xl border border-zinc-700 overflow-hidden">
-      <div className="flex gap-4 p-4">
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-stone-100">
+      {/* Video info */}
+      <div className="flex gap-4 p-4 items-start">
         {metadata.thumbnail && (
           <img
             src={metadata.thumbnail}
             alt={metadata.title}
-            className="w-40 h-24 object-cover rounded-xl shrink-0"
+            className="w-28 h-16 object-cover rounded-xl shrink-0"
           />
         )}
-        <div className="flex flex-col justify-between flex-1 min-w-0">
-          <div>
-            <h3 className="text-white font-semibold text-base leading-tight line-clamp-2">{metadata.title}</h3>
-            <p className="text-zinc-400 text-sm mt-1">{metadata.uploader}</p>
-          </div>
-          <p className="text-zinc-500 text-sm">{formatDuration(metadata.duration)}</p>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-stone-900 font-semibold text-sm leading-snug line-clamp-2">{metadata.title}</h3>
+          <p className="text-stone-400 text-xs mt-1">{metadata.uploader}</p>
+          <p className="text-stone-400 text-xs mt-0.5">{formatDuration(metadata.duration)}</p>
         </div>
-        <button onClick={onClear} className="text-zinc-500 hover:text-white transition-colors self-start text-xl leading-none">✕</button>
+        <button
+          onClick={onClear}
+          className="text-stone-300 hover:text-stone-500 transition-colors self-start text-lg leading-none ml-1"
+        >
+          ✕
+        </button>
       </div>
 
-      <div className="px-4 pb-4 flex flex-col gap-3">
-        {/* Format selector */}
-        <div className="flex gap-2">
+      <div className="border-t border-stone-100 mx-4" />
+
+      {/* Options */}
+      <div className="px-4 py-4 flex flex-col gap-4">
+        <p className="text-stone-700 font-semibold text-sm">Options</p>
+
+        {/* Format toggle */}
+        <div className="bg-stone-100 rounded-xl p-1 flex gap-1">
           {(['mp4', 'mp3'] as DownloadFormat[]).map((f) => (
             <button
               key={f}
               onClick={() => setFormat(f)}
-              className={`flex-1 py-2 rounded-lg font-medium text-sm transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 format === f
-                  ? 'bg-red-600 text-white'
-                  : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
+                  ? 'bg-[#E07050] text-white shadow-sm'
+                  : 'text-stone-600 hover:text-stone-800'
               }`}
             >
+              {f === 'mp4' ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/>
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                </svg>
+              )}
               {t(lang, `format.${f}`)}
             </button>
           ))}
         </div>
 
-        {/* Quality/Bitrate */}
+        {/* Quality / Bitrate */}
         {format === 'mp4' ? (
           <div>
-            <label className="text-zinc-400 text-xs mb-1 block">{t(lang, 'metadata.quality')}</label>
+            <label className="text-stone-500 text-xs font-medium mb-1.5 block">{t(lang, 'metadata.quality')}</label>
             <select
               value={videoQuality}
               onChange={(e) => setVideoQuality(e.target.value)}
-              className="w-full bg-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+              className="w-full bg-white border border-stone-200 text-stone-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#E07050] transition-colors"
             >
               {metadata.formats.map((f) => (
                 <option key={f.format_id} value={f.format_id}>{f.label}</option>
@@ -143,11 +165,11 @@ export function MetadataPreview({ url, metadata, onClear }: Props) {
           </div>
         ) : (
           <div>
-            <label className="text-zinc-400 text-xs mb-1 block">{t(lang, 'metadata.bitrate')}</label>
+            <label className="text-stone-500 text-xs font-medium mb-1.5 block">{t(lang, 'metadata.bitrate')}</label>
             <select
               value={bitrate}
               onChange={(e) => setBitrate(e.target.value as Mp3Bitrate)}
-              className="w-full bg-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+              className="w-full bg-white border border-stone-200 text-stone-800 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#E07050] transition-colors"
             >
               <option value="128">128 kbps</option>
               <option value="192">192 kbps</option>
@@ -158,28 +180,30 @@ export function MetadataPreview({ url, metadata, onClear }: Props) {
 
         {/* Output directory */}
         <div>
-          <label className="text-zinc-400 text-xs mb-1 block">{t(lang, 'metadata.outputDir')}</label>
+          <label className="text-stone-500 text-xs font-medium mb-1.5 block">{t(lang, 'metadata.outputDir')}</label>
           <div className="flex gap-2">
             <input
               type="text"
               readOnly
               value={outputDir}
               placeholder={t(lang, 'metadata.browse')}
-              className="flex-1 bg-zinc-700 text-white rounded-lg px-3 py-2 text-sm cursor-pointer"
+              className="flex-1 bg-white border border-stone-200 text-stone-700 rounded-xl px-3 py-2.5 text-sm cursor-pointer focus:outline-none focus:border-[#E07050] transition-colors placeholder-stone-400"
               onClick={handleBrowse}
             />
             <button
               onClick={handleBrowse}
-              className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg text-sm transition-colors"
+              className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-xl text-sm transition-colors"
             >
-              📁
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+              </svg>
             </button>
           </div>
         </div>
 
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error && <p className="text-red-500 text-xs">{error}</p>}
         {!canDownload && (
-          <p className="text-yellow-400 text-sm">
+          <p className="text-amber-600 text-xs">
             {lang === 'pl'
               ? `Osiągnięto limit ${settings.maxParallelDownloads} równoległych pobrań.`
               : `Reached limit of ${settings.maxParallelDownloads} parallel downloads.`}
@@ -189,9 +213,9 @@ export function MetadataPreview({ url, metadata, onClear }: Props) {
         <button
           onClick={handleDownload}
           disabled={!canDownload}
-          className="w-full py-3 rounded-xl bg-red-600 text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
+          className="w-full py-3 rounded-xl bg-[#E07050] text-white font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#cc6344] transition-colors"
         >
-          {t(lang, 'download.start')}
+          {downloadLabel}
         </button>
       </div>
     </div>

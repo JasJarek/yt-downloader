@@ -9,10 +9,10 @@ export const pl = {
     accept: 'Rozumiem i akceptuję',
   },
   url: {
-    placeholder: 'Wklej link do filmu YouTube...',
+    placeholder: 'Wklej link do wideo lub audio z YouTube...',
     invalid: 'Nieprawidłowy link YouTube',
-    fetch: 'Pobierz informacje',
-    fetching: 'Pobieranie metadanych...',
+    fetch: 'Analizuj link',
+    fetching: 'Analizowanie...',
   },
   metadata: {
     duration: 'Czas trwania',
