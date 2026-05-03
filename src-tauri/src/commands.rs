@@ -177,24 +177,39 @@ pub async fn start_download(
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|| "yt-dlp".to_string());
 
-    // Pass the directory containing ffmpeg — more reliable than full binary path
-    // (yt-dlp accepts both the binary path and its parent directory)
-    let ffmpeg_dir = find_sidecar(&app, "ffmpeg")
-        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-        .map(|d| d.to_string_lossy().to_string())
-        .unwrap_or_default();
+    let ffmpeg_path = find_sidecar(&app, "ffmpeg");
+
+    // Verify ffmpeg is actually executable before starting a video download
+    if request.format != "mp3" {
+        match &ffmpeg_path {
+            None => {
+                return Err("FFmpeg nie został znaleziony. Sprawdź instalację aplikacji.".to_string());
+            }
+            Some(p) => {
+                let check = Command::new(p).arg("-version").output().await;
+                if check.is_err() {
+                    return Err(format!(
+                        "FFmpeg nie można uruchomić (ścieżka: {}). Sprawdź instalację.",
+                        p.display()
+                    ));
+                }
+            }
+        }
+    }
+
+    // Pass ffmpeg directory to yt-dlp (accepts both binary path and directory)
+    let ffmpeg_location = ffmpeg_path
+        .as_ref()
+        .and_then(|p| p.parent())
+        .map(|d| d.to_string_lossy().to_string());
 
     let app_clone = app.clone();
     let id_clone = id.clone();
 
     let mut args: Vec<String> = Vec::new();
 
-    // Tell yt-dlp where ffmpeg lives (only if we found it)
-    if !ffmpeg_dir.is_empty() {
-        args.extend([
-            "--ffmpeg-location".to_string(),
-            ffmpeg_dir,
-        ]);
+    if let Some(loc) = ffmpeg_location {
+        args.extend(["--ffmpeg-location".to_string(), loc]);
     }
 
     match request.format.as_str() {
@@ -210,8 +225,6 @@ pub async fn start_download(
             ]);
         }
         _ => {
-            // request.quality is already a full yt-dlp format selector
-            // e.g. "bestvideo[height<=720]+bestaudio" — use it directly
             args.extend([
                 "-f".to_string(),
                 request.quality.clone(),
@@ -234,15 +247,17 @@ pub async fn start_download(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to start download: {e}"))?;
+        .map_err(|e| format!("Nie można uruchomić yt-dlp: {e}"))?;
 
     let stdout = child.stdout.take().unwrap();
-    let mut reader = BufReader::new(stdout).lines();
+    let stderr = child.stderr.take().unwrap();
+    let mut out_reader = BufReader::new(stdout).lines();
+    let mut err_reader = BufReader::new(stderr).lines();
 
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                line = reader.next_line() => {
+                line = out_reader.next_line() => {
                     match line {
                         Ok(Some(line)) => {
                             let progress = parse_progress(&id_clone, &line);
@@ -250,6 +265,20 @@ pub async fn start_download(
                         }
                         Ok(None) => break,
                         Err(_) => break,
+                    }
+                }
+                line = err_reader.next_line() => {
+                    if let Ok(Some(line)) = line {
+                        // Surface important stderr messages (ffmpeg errors, warnings)
+                        if line.contains("ffmpeg") || line.contains("ERROR") || line.contains("WARNING") {
+                            let _ = app_clone.emit("download-progress", &DownloadProgress {
+                                id: id_clone.clone(),
+                                percent: 0.0,
+                                speed: String::new(),
+                                eta: String::new(),
+                                stage: format!("warn:{}", line.trim()),
+                            });
+                        }
                     }
                 }
                 _ = cancel_rx.changed() => {

@@ -87,6 +87,11 @@ export function DownloadQueue() {
               {(job.status === 'downloading' || job.status === 'converting' || job.status === 'completed') && (
                 <ProgressBar percent={job.percent} status={job.status} />
               )}
+              {job.stage.startsWith('warn:') && (
+                <p className="text-yellow-400 text-xs mt-1 truncate" title={job.stage.slice(5)}>
+                  ⚠ {job.stage.slice(5)}
+                </p>
+              )}
             </div>
             <div className="flex gap-1 shrink-0">
               {(job.status === 'downloading' || job.status === 'pending' || job.status === 'converting') && (

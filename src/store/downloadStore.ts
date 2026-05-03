@@ -19,11 +19,17 @@ export const useDownloadStore = create<DownloadState>((set) => ({
 
   updateProgress: ({ id, percent, speed, eta, stage }) =>
     set((state) => ({
-      jobs: state.jobs.map((j) =>
-        j.id === id
-          ? { ...j, percent, speed, eta, stage, status: stage === 'converting' ? 'converting' : 'downloading' }
-          : j
-      ),
+      jobs: state.jobs.map((j) => {
+        if (j.id !== id) return j;
+        // stage prefixed with "warn:" is a diagnostic message, don't change status
+        if (stage.startsWith('warn:')) {
+          return { ...j, stage };
+        }
+        return {
+          ...j, percent, speed, eta, stage,
+          status: stage === 'converting' ? 'converting' : 'downloading',
+        };
+      }),
     })),
 
   finishJob: ({ id, status }) =>
