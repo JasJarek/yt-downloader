@@ -48,44 +48,56 @@ pub struct DownloadRequest {
 
 pub type ActiveDownloads = Arc<Mutex<HashMap<String, tokio::sync::watch::Sender<bool>>>>;
 
-fn find_sidecar(app: &AppHandle, name: &str) -> String {
+fn find_sidecar(app: &AppHandle, name: &str) -> Option<std::path::PathBuf> {
     use tauri::Manager;
 
     let names = [name.to_string(), format!("{}.exe", name)];
 
-    // 1. Bundled resources (production)
+    // 1. Production: bundled in resource_dir/binaries/
     for n in &names {
         if let Ok(p) = app.path().resource_dir().map(|d| d.join("binaries").join(n)) {
             if p.exists() {
-                return p.to_string_lossy().to_string();
+                return Some(p);
             }
         }
     }
 
-    // 2. Dev mode: binary lives in src-tauri/binaries/, exe in src-tauri/target/debug/
-    //    exe_dir/../../../binaries would overshoot — correct path is exe_dir/../../binaries
+    // 2. Production (Windows MSI/NSIS): resources placed next to the .exe
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
-            // target/debug/ -> target/ -> src-tauri/ -> binaries/
+            for n in &names {
+                let p = exe_dir.join("binaries").join(n);
+                if p.exists() {
+                    return Some(p);
+                }
+                // Some Tauri installers flatten resources next to the exe
+                let p2 = exe_dir.join(n);
+                if p2.exists() {
+                    return Some(p2);
+                }
+            }
+
+            // 3. Dev mode: exe is at src-tauri/target/debug/ — binaries at src-tauri/binaries/
             let dev_base = exe_dir.join("..").join("..").join("binaries");
             for n in &names {
-                let p = dev_base.join(n);
-                if let Ok(canonical) = p.canonicalize() {
+                if let Ok(canonical) = dev_base.join(n).canonicalize() {
                     if canonical.exists() {
-                        return canonical.to_string_lossy().to_string();
+                        return Some(canonical);
                     }
                 }
             }
         }
     }
 
-    // 3. Last resort: rely on system PATH
-    name.to_string()
+    None
 }
 
 #[tauri::command]
 pub async fn fetch_metadata(app: AppHandle, url: String) -> Result<VideoMetadata, String> {
-    let ytdlp = find_sidecar(&app, "yt-dlp");
+    let ytdlp = find_sidecar(&app, "yt-dlp")
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| "yt-dlp".to_string());
+
     let output = Command::new(&ytdlp)
         .args(["--dump-json", "--no-playlist", &url])
         .output()
@@ -161,18 +173,29 @@ pub async fn start_download(
     let (cancel_tx, mut cancel_rx) = tokio::sync::watch::channel(false);
     downloads.lock().await.insert(id.clone(), cancel_tx);
 
-    let ytdlp = find_sidecar(&app, "yt-dlp");
-    let ffmpeg = find_sidecar(&app, "ffmpeg");
+    let ytdlp = find_sidecar(&app, "yt-dlp")
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| "yt-dlp".to_string());
+
+    // Pass the directory containing ffmpeg — more reliable than full binary path
+    // (yt-dlp accepts both the binary path and its parent directory)
+    let ffmpeg_dir = find_sidecar(&app, "ffmpeg")
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .map(|d| d.to_string_lossy().to_string())
+        .unwrap_or_default();
+
     let app_clone = app.clone();
     let id_clone = id.clone();
 
     let mut args: Vec<String> = Vec::new();
 
-    // Always tell yt-dlp where our bundled ffmpeg is
-    args.extend([
-        "--ffmpeg-location".to_string(),
-        ffmpeg.clone(),
-    ]);
+    // Tell yt-dlp where ffmpeg lives (only if we found it)
+    if !ffmpeg_dir.is_empty() {
+        args.extend([
+            "--ffmpeg-location".to_string(),
+            ffmpeg_dir,
+        ]);
+    }
 
     match request.format.as_str() {
         "mp3" => {
